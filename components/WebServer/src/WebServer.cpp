@@ -54,7 +54,6 @@ esp_err_t WebServer::start()
     config.server_port = port_;
     config.stack_size = 8192;
 
-    // ✅ CORRECT: Pass ADDRESS of server_ (because httpd_start expects httpd_handle_t*)
     if (httpd_start(&server_, &config) != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to start HTTP server (port %d, stack %d)",
@@ -119,64 +118,69 @@ std::string url_decode(const std::string &src)
 
 void parse_params(const std::string &body, SunriseSettings &settings)
 {
+    // Initialize a temporary struct or reset only what's provided?
+    // We'll parse only what's in the body, but ensure all fields are covered.
+
+    // Default: keep existing values unless overridden
+    // But since we always send all fields (thanks to hidden input), safe to parse all.
+
     size_t pos = 0;
     std::string token;
     std::string input = body;
+
+    // Helper lambda to extract value after '='
+    auto get_value = [](const std::string& param, const std::string& key) -> std::string {
+        if (param.substr(0, key.length()) == key) {
+            return param.substr(key.length());
+        }
+        return "";
+    };
+
     while ((pos = input.find('&')) != std::string::npos)
     {
         token = input.substr(0, pos);
-        if (token.find("brightness=") == 0)
-        {
-            settings.brightness = std::stoi(token.substr(11));
-        }
-        else if (token.find("red=") == 0)
-        {
-            settings.red = std::stoi(token.substr(4));
-        }
-        else if (token.find("green=") == 0)
-        {
-            settings.green = std::stoi(token.substr(6));
-        }
-        else if (token.find("blue=") == 0)
-        {
-            settings.blue = std::stoi(token.substr(5));
-        }
-        else if (token.find("duration=") == 0)
-        {
-            settings.duration_minutes = std::stoi(token.substr(9));
-        }
-        else if (token.find("enabled=") == 0)
-        {
-            settings.enabled = (token.substr(8) == "true" || token.substr(8) == "1");
+        if (!token.empty()) {
+            if (token.find("brightness=") == 0) {
+                settings.brightness = std::stoi(get_value(token, "brightness="));
+            } else if (token.find("red=") == 0) {
+                settings.red = std::stoi(get_value(token, "red="));
+            } else if (token.find("green=") == 0) {
+                settings.green = std::stoi(get_value(token, "green="));
+            } else if (token.find("blue=") == 0) {
+                settings.blue = std::stoi(get_value(token, "blue="));
+            } else if (token.find("duration=") == 0) {
+                settings.duration_minutes = std::stoi(get_value(token, "duration="));
+            } else if (token.find("alarm_hour=") == 0) {
+                settings.alarm_hour = std::stoi(get_value(token, "alarm_hour="));
+            } else if (token.find("alarm_minute=") == 0) {
+                settings.alarm_minute = std::stoi(get_value(token, "alarm_minute="));
+            } else if (token.find("enabled=") == 0) {
+                std::string val = get_value(token, "enabled=");
+                settings.enabled = (val == "1" || val == "true");
+            }
         }
         input.erase(0, pos + 1);
     }
-    // Last param
-    if (!input.empty())
-    {
-        if (input.find("brightness=") == 0)
-        {
-            settings.brightness = std::stoi(input.substr(11));
-        }
-        else if (input.find("red=") == 0)
-        {
-            settings.red = std::stoi(input.substr(4));
-        }
-        else if (input.find("green=") == 0)
-        {
-            settings.green = std::stoi(input.substr(6));
-        }
-        else if (input.find("blue=") == 0)
-        {
-            settings.blue = std::stoi(input.substr(5));
-        }
-        else if (input.find("duration=") == 0)
-        {
-            settings.duration_minutes = std::stoi(input.substr(9));
-        }
-        else if (input.find("enabled=") == 0)
-        {
-            settings.enabled = (input.substr(8) == "true" || input.substr(8) == "1");
+
+    // Last parameter
+    if (!input.empty()) {
+        if (input.find("brightness=") == 0) {
+            settings.brightness = std::stoi(get_value(input, "brightness="));
+        } else if (input.find("red=") == 0) {
+            settings.red = std::stoi(get_value(input, "red="));
+        } else if (input.find("green=") == 0) {
+            settings.green = std::stoi(get_value(input, "green="));
+        } else if (input.find("blue=") == 0) {
+            settings.blue = std::stoi(get_value(input, "blue="));
+        } else if (input.find("duration=") == 0) {
+            settings.duration_minutes = std::stoi(get_value(input, "duration="));
+        } else if (input.find("alarm_hour=") == 0) {
+            settings.alarm_hour = std::stoi(get_value(input, "alarm_hour="));
+        } else if (input.find("alarm_minute=") == 0) {
+            settings.alarm_minute = std::stoi(get_value(input, "alarm_minute="));
+        } else if (input.find("enabled=") == 0) {
+            std::string val = get_value(input, "enabled=");
+            settings.enabled = (val == "1" || val == "true");
         }
     }
 
@@ -186,6 +190,8 @@ void parse_params(const std::string &body, SunriseSettings &settings)
     settings.green = std::max(0, std::min(255, settings.green));
     settings.blue = std::max(0, std::min(255, settings.blue));
     settings.duration_minutes = std::max(1, std::min(120, settings.duration_minutes));
+    settings.alarm_hour = std::max(0, std::min(23, settings.alarm_hour));
+    settings.alarm_minute = std::max(0, std::min(59, settings.alarm_minute));
 }
 
 esp_err_t WebServer::root_get_handler(httpd_req_t *req)
@@ -204,7 +210,15 @@ esp_err_t WebServer::root_get_handler(httpd_req_t *req)
          << s_instance->settings_.blue << "' min='0' max='255'></label><br><br>"
          << "<label>Duration (min): <input type='number' name='duration' value='"
          << s_instance->settings_.duration_minutes << "' min='1' max='120'></label><br><br>"
-         << "<label>Enabled: <input type='checkbox' name='enabled' value='1' "
+         << "<label>Alarm Time: "
+         << "<input type='number' name='alarm_hour' value='"
+         << s_instance->settings_.alarm_hour << "' min='0' max='23' style='width:60px'> : "
+         << "<input type='number' name='alarm_minute' value='"
+         << s_instance->settings_.alarm_minute << "' min='0' max='59' style='width:60px'>"
+         << "</label><br><br>"
+         << "<label>Enabled: "
+         << "<input type='hidden' name='enabled' value='0'>"
+         << "<input type='checkbox' name='enabled' value='1' "
          << (s_instance->settings_.enabled ? "checked" : "") << "></label><br><br>"
          << "<input type='submit' value='Save Settings'>"
          << "</form>"
