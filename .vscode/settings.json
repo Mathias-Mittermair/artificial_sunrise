@@ -22,6 +22,7 @@
   "files.associations": {
     "*.ejs": "html",
     "chrono": "c",
-    "dport_reg.h": "c"
+    "dport_reg.h": "c",
+    "format": "cpp"
   }
 }
