@@ -5,8 +5,9 @@
 
 class WiFiManager {
 public:
-    esp_err_t init();
+    void init();
     esp_err_t connect();
+    bool is_connected();
 };
 
 #endif

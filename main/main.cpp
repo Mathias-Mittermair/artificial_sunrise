@@ -4,19 +4,45 @@
 #include "WiFiManager.h"
 #include "WebServer.h"
 #include "esp_log.h"
+#include "esp_err.h"
+#include "nvs_flash.h"
 
-extern "C" void app_main(void) {
+static const char *TAG = "Main";
+
+extern "C" void app_main(void)
+{
+    // === STEP 1: Initialize NVS ===
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NEW_VERSION_FOUND || ret == ESP_ERR_NVS_INVALID_STATE) {
+        ESP_LOGW(TAG, "NVS version mismatch or corruption. Erasing...");
+        nvs_flash_erase();
+        ret = nvs_flash_init();
+    }
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize NVS: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    // === STEP 2: Now initialize Wi-Fi (which uses NVS) ===
     WiFiManager wifiManager;
-    wifiManager.init();
-    wifiManager.connect();
+    wifiManager.init();  // This will now succeed
 
+    // === STEP 3: Wait for connection ===
+    while (!wifiManager.is_connected()) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        ESP_LOGI(TAG, "Waiting for WiFi...");
+    }
+
+    ESP_LOGI(TAG, "Wi-Fi connected. Starting web server...");
     WebServer server(80);
-    server.start();
+    esp_err_t err = server.start();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start web server: %s", esp_err_to_name(err));
+    }
 
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
-
 
     // LEDStrip strip(17, 80, false);
 

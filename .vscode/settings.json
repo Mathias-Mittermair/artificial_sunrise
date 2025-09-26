@@ -23,6 +23,7 @@
     "*.ejs": "html",
     "chrono": "c",
     "dport_reg.h": "c",
-    "format": "cpp"
+    "format": "cpp",
+    "cstdint": "cpp"
   }
 }
