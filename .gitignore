@@ -21,3 +21,7 @@ __pycache__/
 
 # Windows
 Thumbs.db
+
+# Secrets
+secrets.h
+
