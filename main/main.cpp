@@ -48,7 +48,7 @@ extern "C" void app_main(void)
 
     while (true)
     {
-        const auto &settings = server.get_settings();
+        SunriseSettings settings = server.get_settings_copy();
 
         if (settings.enabled)
         {
@@ -63,6 +63,6 @@ extern "C" void app_main(void)
             strip.refresh();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(5000)); // Update every 5 sec
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Update every 5 sec
     }
 }

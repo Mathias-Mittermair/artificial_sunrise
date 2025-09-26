@@ -9,13 +9,21 @@
 
 static const char *TAG = "WebServer";
 static wl_handle_t s_wl_handle = WL_INVALID_HANDLE;
-static WebServer* s_instance = nullptr;
+static WebServer *s_instance = nullptr;
 
-WebServer::WebServer(uint16_t port) : port_(port), server_(nullptr) {}
+WebServer::WebServer(uint16_t port) : port_(port), server_(nullptr), settings_mutex_(nullptr)
+{
+    settings_mutex_ = xSemaphoreCreateMutex();
+    assert(settings_mutex_ != nullptr);
+}
 
 WebServer::~WebServer()
 {
     stop();
+    if (settings_mutex_ != nullptr)
+    {
+        vSemaphoreDelete(settings_mutex_);
+    }
 }
 
 static esp_err_t root_handler(httpd_req_t *req)
@@ -32,8 +40,7 @@ esp_err_t WebServer::start()
         .max_files = 4,
         .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
         .disk_status_check_enable = false,
-        .use_one_fat = false
-    };
+        .use_one_fat = false};
 
     esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl(base_path, "storage", &mount_config, &s_wl_handle);
     if (err != ESP_OK)
@@ -87,56 +94,88 @@ esp_err_t WebServer::stop()
     return ESP_OK;
 }
 
-std::string url_decode(const std::string& src) {
+std::string url_decode(const std::string &src)
+{
     std::string res;
-    for (size_t i = 0; i < src.length(); ++i) {
-        if (src[i] == '%' && i + 2 < src.length()) {
+    for (size_t i = 0; i < src.length(); ++i)
+    {
+        if (src[i] == '%' && i + 2 < src.length())
+        {
             std::string hex = src.substr(i + 1, 2);
             res += static_cast<char>(std::stoi(hex, nullptr, 16));
             i += 2;
-        } else if (src[i] == '+') {
+        }
+        else if (src[i] == '+')
+        {
             res += ' ';
-        } else {
+        }
+        else
+        {
             res += src[i];
         }
     }
     return res;
 }
 
-void parse_params(const std::string& body, SunriseSettings& settings) {
+void parse_params(const std::string &body, SunriseSettings &settings)
+{
     size_t pos = 0;
     std::string token;
     std::string input = body;
-    while ((pos = input.find('&')) != std::string::npos) {
+    while ((pos = input.find('&')) != std::string::npos)
+    {
         token = input.substr(0, pos);
-        if (token.find("brightness=") == 0) {
+        if (token.find("brightness=") == 0)
+        {
             settings.brightness = std::stoi(token.substr(11));
-        } else if (token.find("red=") == 0) {
+        }
+        else if (token.find("red=") == 0)
+        {
             settings.red = std::stoi(token.substr(4));
-        } else if (token.find("green=") == 0) {
+        }
+        else if (token.find("green=") == 0)
+        {
             settings.green = std::stoi(token.substr(6));
-        } else if (token.find("blue=") == 0) {
+        }
+        else if (token.find("blue=") == 0)
+        {
             settings.blue = std::stoi(token.substr(5));
-        } else if (token.find("duration=") == 0) {
+        }
+        else if (token.find("duration=") == 0)
+        {
             settings.duration_minutes = std::stoi(token.substr(9));
-        } else if (token.find("enabled=") == 0) {
+        }
+        else if (token.find("enabled=") == 0)
+        {
             settings.enabled = (token.substr(8) == "true" || token.substr(8) == "1");
         }
         input.erase(0, pos + 1);
     }
     // Last param
-    if (!input.empty()) {
-        if (input.find("brightness=") == 0) {
+    if (!input.empty())
+    {
+        if (input.find("brightness=") == 0)
+        {
             settings.brightness = std::stoi(input.substr(11));
-        } else if (input.find("red=") == 0) {
+        }
+        else if (input.find("red=") == 0)
+        {
             settings.red = std::stoi(input.substr(4));
-        } else if (input.find("green=") == 0) {
+        }
+        else if (input.find("green=") == 0)
+        {
             settings.green = std::stoi(input.substr(6));
-        } else if (input.find("blue=") == 0) {
+        }
+        else if (input.find("blue=") == 0)
+        {
             settings.blue = std::stoi(input.substr(5));
-        } else if (input.find("duration=") == 0) {
+        }
+        else if (input.find("duration=") == 0)
+        {
             settings.duration_minutes = std::stoi(input.substr(9));
-        } else if (input.find("enabled=") == 0) {
+        }
+        else if (input.find("enabled=") == 0)
+        {
             settings.enabled = (input.substr(8) == "true" || input.substr(8) == "1");
         }
     }
@@ -177,19 +216,36 @@ esp_err_t WebServer::root_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+SunriseSettings WebServer::get_settings_copy() const
+{
+    SunriseSettings copy;
+    if (xSemaphoreTake(settings_mutex_, pdMS_TO_TICKS(10)) == pdTRUE)
+    {
+        copy = settings_;
+        xSemaphoreGive(settings_mutex_);
+    }
+    return copy;
+}
+
 // POST /settings → update settings
 esp_err_t WebServer::settings_post_handler(httpd_req_t *req)
 {
     char buf[1024];
     int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
-    if (ret <= 0) {
+    if (ret <= 0)
+    {
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
     buf[ret] = '\0';
 
     std::string body = url_decode(std::string(buf));
-    parse_params(body, s_instance->settings_);
+
+    if (xSemaphoreTake(s_instance->settings_mutex_, pdMS_TO_TICKS(50)) == pdTRUE)
+    {
+        parse_params(body, s_instance->settings_);
+        xSemaphoreGive(s_instance->settings_mutex_);
+    }
 
     // Redirect back to form
     httpd_resp_set_status(req, "303 See Other");
@@ -201,6 +257,12 @@ esp_err_t WebServer::settings_post_handler(httpd_req_t *req)
 // Optional: GET /settings as JSON (for API)
 esp_err_t WebServer::settings_get_handler(httpd_req_t *req)
 {
+    SunriseSettings settings;
+    if (xSemaphoreTake(s_instance->settings_mutex_, pdMS_TO_TICKS(10)) == pdTRUE)
+    {
+        settings = s_instance->settings_;
+        xSemaphoreGive(s_instance->settings_mutex_);
+    }
     std::ostringstream json;
     json << "{"
          << "\"brightness\":" << s_instance->settings_.brightness << ","
@@ -223,27 +285,24 @@ esp_err_t WebServer::register_uri_handlers()
     s_instance = this;
 
     httpd_uri_t root_uri = {
-        .uri       = "/",
-        .method    = HTTP_GET,
-        .handler   = root_get_handler,
-        .user_ctx  = nullptr
-    };
+        .uri = "/",
+        .method = HTTP_GET,
+        .handler = root_get_handler,
+        .user_ctx = nullptr};
     httpd_register_uri_handler(server_, &root_uri);
 
     httpd_uri_t settings_post = {
-        .uri       = "/settings",
-        .method    = HTTP_POST,
-        .handler   = settings_post_handler,
-        .user_ctx  = nullptr
-    };
+        .uri = "/settings",
+        .method = HTTP_POST,
+        .handler = settings_post_handler,
+        .user_ctx = nullptr};
     httpd_register_uri_handler(server_, &settings_post);
 
     httpd_uri_t settings_get = {
-        .uri       = "/settings",
-        .method    = HTTP_GET,
-        .handler   = settings_get_handler,
-        .user_ctx  = nullptr
-    };
+        .uri = "/settings",
+        .method = HTTP_GET,
+        .handler = settings_get_handler,
+        .user_ctx = nullptr};
     httpd_register_uri_handler(server_, &settings_get);
 
     return ESP_OK;

@@ -4,8 +4,9 @@
 #include "esp_err.h"
 #include "esp_http_server.h"
 
-struct SunriseSettings {
-    int brightness = 100;      // 0-255
+struct SunriseSettings
+{
+    int brightness = 100; // 0-255
     int red = 255;
     int green = 100;
     int blue = 0;
@@ -13,7 +14,8 @@ struct SunriseSettings {
     bool enabled = true;
 };
 
-class WebServer {
+class WebServer
+{
 public:
     explicit WebServer(uint16_t port = 80);
     ~WebServer();
@@ -21,7 +23,7 @@ public:
     esp_err_t start();
     esp_err_t stop();
 
-    const SunriseSettings& get_settings() const { return settings_; } 
+    SunriseSettings get_settings_copy() const;
 
 private:
     esp_err_t register_uri_handlers();
@@ -32,4 +34,5 @@ private:
     uint16_t port_;
     httpd_handle_t server_;
     SunriseSettings settings_;
+    mutable SemaphoreHandle_t settings_mutex_;
 };
