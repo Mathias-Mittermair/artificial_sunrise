@@ -1,0 +1,23 @@
+# Build output
+build/
+
+# SDK configuration
+sdkconfig
+sdkconfig.old
+
+# IDF component manager
+.idf_component_dependencies/
+
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+
+# Logs and temporary files
+*.log
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
