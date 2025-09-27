@@ -25,7 +25,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
-        ESP_LOGI(TAG, "✅ Got IP address");
+        ESP_LOGI(TAG, "Got IP address");
         s_connected = true;
     }
 }
