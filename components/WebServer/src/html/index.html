@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artificial Sunrise</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Artificial Sunrise</h1>
+        </div>
+
+        <form method="POST" action="/settings">
+            <div class="section">
+                <h2 class="section-title">Farbeinstellungen</h2>
+                <div class="form-group">
+                    <label>Rot</label>
+                    <input type="range" name="red" min="0" max="255" value="%RED%">
+                    <span class="text-muted">Wert: <span id="red-val">%RED%</span></span>
+                </div>
+                <div class="form-group">
+                    <label>Grün</label>
+                    <input type="range" name="green" min="0" max="255" value="%GREEN%">
+                    <span class="text-muted">Wert: <span id="green-val">%GREEN%</span></span>
+                </div>
+                <div class="form-group">
+                    <label>Blau</label>
+                    <input type="range" name="blue" min="0" max="255" value="%BLUE%">
+                    <span class="text-muted">Wert: <span id="blue-val">%BLUE%</span></span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Alarmeinstellungen</h2>
+                <div class="grid">
+                    <div class="form-group">
+                        <label>Dauer Sonnenaufgang [min]</label>
+                        <input type="number" name="duration_minutes" value="%DURATION_MINUTES%" min="1" max="120">
+                    </div>
+                    <div class="form-group">
+                        <label>Dauer Licht nach Sonnenaufgang [min]</label>
+                        <input type="number" name="duration_on_brightest" value="%DURATION_ON_BRIGHTEST%" min="1" max="120">
+                    </div>
+                    <div class="form-group">
+                        <label>Alarm Stunde</label>
+                        <input type="number" name="alarm_hour" value="%ALARM_HOUR%" min="0" max="23">
+                    </div>
+                    <div class="form-group">
+                        <label>Alarm Minute</label>
+                        <input type="number" name="alarm_minute" value="%ALARM_MINUTE%" min="0" max="59">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Alarm aktiviert
+                        <label class="switch">
+                            <input type="checkbox" name="enabled" value="1" %ENABLED%>
+                            <span class="slider"></span>
+                        </label>
+                    </label>
+                </div>
+            </div>
+
+            <div style="padding: 20px;">
+                <button type="submit" class="btn">Einstellungen speichern</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        ['red', 'green', 'blue'].forEach(name => {
+            const slider = document.querySelector(`input[name="${name}"]`);
+            const valSpan = document.getElementById(`${name}-val`);
+            if (slider && valSpan) {
+                slider.oninput = () => valSpan.textContent = slider.value;
+            }
+        });
+    </script>
+</body>
+</html>
