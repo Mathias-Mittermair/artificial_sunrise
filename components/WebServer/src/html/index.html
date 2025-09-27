@@ -37,7 +37,17 @@
             <div class="form-group">
                 <label>Vorschau aktiviert
                     <label class="switch">
-                        <input type="checkbox" name="light_preview" value="1" %LIGHT_PREVIEW%>
+                        <input type="checkbox" id="light_preview" name="light_preview" value="1" %LIGHT_PREVIEW%>
+                        <span class="slider"></span>
+                    </label>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Hardwareschalter deaktivieren
+                    <label class="switch">
+                        <input type="checkbox" name="disable_hardware_switches" id="disable_hardware_switches" value="1"
+                            %DISABLE_SETTINGS%>
                         <span class="slider"></span>
                     </label>
                 </label>
@@ -68,15 +78,11 @@
                 <div class="form-group">
                     <label>Alarm aktiviert
                         <label class="switch">
-                            <input type="checkbox" name="enabled" value="1" %ENABLED%>
+                            <input type="checkbox" id="enabled" name="enabled" value="1" %ENABLED%>
                             <span class="slider"></span>
                         </label>
                     </label>
                 </div>
-            </div>
-
-            <div style="padding: 5px;">
-                <button type="submit" class="btn">Einstellungen speichern</button>
             </div>
         </form>
     </div>
@@ -87,6 +93,102 @@
             const valSpan = document.getElementById(`${name}-val`);
             if (slider && valSpan) {
                 slider.oninput = () => valSpan.textContent = slider.value;
+            }
+        });
+
+        // Switch auto update
+        let lastSwitchState = { enabled: null, light_preview: null };
+
+        function refreshSwitchStates() {
+            fetch("/settings")
+                .then(r => r.json())
+                .then(data => {
+                    if (data.enabled !== lastSwitchState.enabled || data.light_preview !== lastSwitchState.light_preview) {
+                        updateSwitches(data);
+                        lastSwitchState.enabled = data.enabled;
+                        lastSwitchState.light_preview = data.light_preview;
+                    }
+                })
+                .catch(err => console.error("Update failed", err));
+        }
+
+        function updateSwitches(data) {
+            document.querySelector("#enabled").checked = data.enabled;
+            document.querySelector("#light_preview").checked = data.light_preview;
+        }
+
+        setInterval(refreshSwitchStates, 500);
+        window.addEventListener("load", refreshSwitchStates);
+
+        // Set Switches disabled if hardware switches are enabled
+        function toggleDisableSettings(disabled) {
+            document.querySelectorAll('input[type="checkbox"]').forEach(el => {
+                if (el.id !== "disable_hardware_switches") {
+                    const label = el.closest("label.switch");
+                    if (label) {
+                        if (disabled) {
+                            el.disabled = false;
+                            label.classList.remove("input-disabled");
+                        } else {
+                            el.disabled = true;
+                            label.classList.add("input-disabled");
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById("disable_hardware_switches").addEventListener("change", e => {
+            toggleDisableSettings(e.target.checked);
+        });
+
+        window.addEventListener("load", () => {
+            toggleDisableSettings(document.getElementById("disable_hardware_switches").checked);
+        });
+
+        // Funktion: alle aktuellen Einstellungen posten
+        function updateSetting() {
+            const params = new URLSearchParams();
+
+            ['red', 'green', 'blue', 'duration_minutes', 'duration_on_brightest', 'alarm_hour', 'alarm_minute', 'enabled', 'light_preview', 'disable_hardware_switches'].forEach(n => {
+                const el = document.querySelector(`[name="${n}"]`);
+                if (el) {
+                    params.append(n, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value);
+                }
+            });
+
+            fetch("/settings", {
+                method: "POST",
+                body: params,
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            }).catch(err => console.error("Failed to update setting:", err));
+        }
+
+        // Slider-Inputs: sofort speichern bei Änderung
+        ['red', 'green', 'blue'].forEach(name => {
+            const slider = document.querySelector(`input[name="${name}"]`);
+            const valSpan = document.getElementById(`${name}-val`);
+            if (slider && valSpan) {
+                slider.oninput = () => {
+                    valSpan.textContent = slider.value;
+                };
+                slider.onchange = updateSetting;
+            }
+        });
+
+        // Number-Inputs: sofort speichern bei Änderung
+        ['duration_minutes', 'duration_on_brightest', 'alarm_hour', 'alarm_minute'].forEach(name => {
+            const input = document.querySelector(`input[name="${name}"]`);
+            if (input) {
+                input.onchange = updateSetting;
+            }
+        });
+
+        // Switches: sofort speichern bei Änderung
+        ['enabled', 'light_preview', 'disable_hardware_switches'].forEach(name => {
+            const checkbox = document.querySelector(`input[name="${name}"]`);
+            if (checkbox) {
+                checkbox.onchange = updateSetting;
             }
         });
     </script>

@@ -45,7 +45,7 @@ bool obtain_time(int timeout_sec) {
 }
 
 bool is_alarm_time(const SunriseSettings &settings, double &sunrise_percentage) {
-    if (!settings.enabled) {
+    if (!settings.alarm_enabled) {
         sunrise_percentage = 0.0;
         return false;
     }

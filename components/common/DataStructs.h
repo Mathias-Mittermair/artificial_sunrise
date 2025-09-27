@@ -14,5 +14,6 @@ struct SunriseSettings
     int alarm_hour = 7;
     int alarm_minute = 30;
 
-    bool enabled = false;
+    bool alarm_enabled = false;
+    bool disable_hardware_switches = false;
 };

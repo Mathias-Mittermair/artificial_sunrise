@@ -21,6 +21,11 @@ public:
     esp_err_t handle_settings_get(httpd_req_t *req);
     esp_err_t serve_static(httpd_req_t *req);
 
+    void set_alarm_enabled(bool enabled);
+    bool get_alarm_enabled() const;
+    void set_light_preview(bool enabled);
+    bool get_light_preview() const;
+
 private:
     uint16_t port_;
     httpd_handle_t server_;
