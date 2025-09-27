@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "../../common/DataStructs.h"
@@ -16,11 +17,14 @@ public:
 
     SunriseSettings get_settings_copy() const;
 
+    esp_err_t handle_root_get(httpd_req_t *req);
+    esp_err_t handle_settings_post(httpd_req_t *req);
+    esp_err_t handle_settings_get(httpd_req_t *req);
+
 private:
     esp_err_t register_uri_handlers();
-    static esp_err_t root_get_handler(httpd_req_t *req);
-    static esp_err_t settings_post_handler(httpd_req_t *req);
-    static esp_err_t settings_get_handler(httpd_req_t *req);
+
+    std::string get_param(const std::string& body, const std::string& key);
 
     uint16_t port_;
     httpd_handle_t server_;

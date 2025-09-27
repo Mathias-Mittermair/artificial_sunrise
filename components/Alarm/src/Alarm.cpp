@@ -55,21 +55,22 @@ bool is_alarm_time(const SunriseSettings &settings, double &sunrise_percentage) 
     localtime_r(&now, &local_time);
 
     int current_total_minutes = local_time.tm_hour * 60 + local_time.tm_min;
-    int alarm_start_minutes = settings.alarm_hour * 60 + settings.alarm_minute;
-    int alarm_end_minutes = alarm_start_minutes + settings.duration_minutes;
+    // int alarm_start_minutes = settings.alarm_hour * 60 + settings.alarm_minute;
+    // int alarm_end_minutes = alarm_start_minutes + settings.duration_minutes;
 
-    bool is_alarm_on = (current_total_minutes >= alarm_start_minutes) &&
-                       (current_total_minutes <= alarm_end_minutes);
+    // bool is_alarm_on = (current_total_minutes >= alarm_start_minutes) &&
+    //                    (current_total_minutes <= alarm_end_minutes);
 
-    sunrise_percentage = 0.0;
-    if (is_alarm_on) {
-        int passed_seconds = (current_total_minutes - alarm_start_minutes) * 60 + local_time.tm_sec;
-        int total_duration_seconds = settings.duration_minutes * 60;
-        sunrise_percentage = static_cast<double>(passed_seconds) / total_duration_seconds;
-        sunrise_percentage = std::clamp(sunrise_percentage, 0.0, 1.0);
-    }
+    // sunrise_percentage = 0.0;
+    // if (is_alarm_on) {
+    //     int passed_seconds = (current_total_minutes - alarm_start_minutes) * 60 + local_time.tm_sec;
+    //     int total_duration_seconds = settings.duration_minutes * 60;
+    //     sunrise_percentage = static_cast<double>(passed_seconds) / total_duration_seconds;
+    //     sunrise_percentage = std::clamp(sunrise_percentage, 0.0, 1.0);
+    // }
 
-    return is_alarm_on;
+    //return is_alarm_on;
+    return false;
 }
 
 }
