@@ -2,13 +2,10 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_http_server.h"
-#include "esp_vfs_fat.h"
-#include "wear_levelling.h"
 #include <string>
 #include <sstream>
 
 static const char *TAG = "WebServer";
-static wl_handle_t s_wl_handle = WL_INVALID_HANDLE;
 static WebServer *s_instance = nullptr;
 
 WebServer::WebServer(uint16_t port) : port_(port), server_(nullptr), settings_mutex_(nullptr)
@@ -26,40 +23,15 @@ WebServer::~WebServer()
     }
 }
 
-static esp_err_t root_handler(httpd_req_t *req)
-{
-    const char resp[] = "<h1>Hello from ESP32 WebServer (FATFS)!</h1>";
-    return httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
-}
-
 esp_err_t WebServer::start()
 {
-    const char *base_path = "/www";
-    esp_vfs_fat_mount_config_t mount_config = {
-        .format_if_mount_failed = true,
-        .max_files = 4,
-        .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
-        .disk_status_check_enable = false,
-        .use_one_fat = false};
-
-    esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl(base_path, "storage", &mount_config, &s_wl_handle);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
-        return err;
-    }
-    ESP_LOGI(TAG, "FATFS mounted at %s", base_path);
-
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = port_;
     config.stack_size = 8192;
 
     if (httpd_start(&server_, &config) != ESP_OK)
     {
-        ESP_LOGE(TAG, "Failed to start HTTP server (port %d, stack %d)",
-                 config.server_port, config.stack_size);
-        esp_vfs_fat_spiflash_unmount_rw_wl(base_path, s_wl_handle);
-        s_wl_handle = WL_INVALID_HANDLE;
+        ESP_LOGE(TAG, "Failed to start HTTP server (port %d, stack %d)", config.server_port, config.stack_size);
         return ESP_FAIL;
     }
 
@@ -69,8 +41,6 @@ esp_err_t WebServer::start()
         ESP_LOGE(TAG, "Failed to register URI handlers");
         httpd_stop(server_);
         server_ = nullptr;
-        esp_vfs_fat_spiflash_unmount_rw_wl(base_path, s_wl_handle);
-        s_wl_handle = WL_INVALID_HANDLE;
         return reg_err;
     }
 
@@ -84,11 +54,6 @@ esp_err_t WebServer::stop()
     {
         httpd_stop(server_);
         server_ = nullptr;
-    }
-    if (s_wl_handle != WL_INVALID_HANDLE)
-    {
-        esp_vfs_fat_spiflash_unmount_rw_wl("/www", s_wl_handle);
-        s_wl_handle = WL_INVALID_HANDLE;
     }
     return ESP_OK;
 }
@@ -197,35 +162,22 @@ void parse_params(const std::string &body, SunriseSettings &settings)
 esp_err_t WebServer::root_get_handler(httpd_req_t *req)
 {
     std::ostringstream html;
-    html << "<!DOCTYPE html><html><head><title>Artificial Sunrise</title></head><body>"
+    html << "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Artificial Sunrise</title></head><body>"
          << "<h1>Artificial Sunrise Settings</h1>"
          << "<form method='POST' action='/settings'>"
-         << "<label>Brightness (0-255): <input type='number' name='brightness' value='"
-         << s_instance->settings_.brightness << "' min='0' max='255'></label><br><br>"
-         << "<label>Red (0-255): <input type='number' name='red' value='"
-         << s_instance->settings_.red << "' min='0' max='255'></label><br><br>"
-         << "<label>Green (0-255): <input type='number' name='green' value='"
-         << s_instance->settings_.green << "' min='0' max='255'></label><br><br>"
-         << "<label>Blue (0-255): <input type='number' name='blue' value='"
-         << s_instance->settings_.blue << "' min='0' max='255'></label><br><br>"
-         << "<label>Duration (min): <input type='number' name='duration' value='"
-         << s_instance->settings_.duration_minutes << "' min='1' max='120'></label><br><br>"
-         << "<label>Alarm Time: "
-         << "<input type='number' name='alarm_hour' value='"
-         << s_instance->settings_.alarm_hour << "' min='0' max='23' style='width:60px'> : "
-         << "<input type='number' name='alarm_minute' value='"
-         << s_instance->settings_.alarm_minute << "' min='0' max='59' style='width:60px'>"
-         << "</label><br><br>"
-         << "<label>Enabled: "
-         << "<input type='hidden' name='enabled' value='0'>"
-         << "<input type='checkbox' name='enabled' value='1' "
-         << (s_instance->settings_.enabled ? "checked" : "") << "></label><br><br>"
-         << "<input type='submit' value='Save Settings'>"
-         << "</form>"
-         << "<p><i>Settings applied immediately.</i></p>"
-         << "</body></html>";
+         << "<label>Brightness: <input type='number' name='brightness' value='" << s_instance->settings_.brightness << "' min='0' max='255'></label><br>"
+         << "<label>Red: <input type='number' name='red' value='" << s_instance->settings_.red << "' min='0' max='255'></label><br>"
+         << "<label>Green: <input type='number' name='green' value='" << s_instance->settings_.green << "' min='0' max='255'></label><br>"
+         << "<label>Blue: <input type='number' name='blue' value='" << s_instance->settings_.blue << "' min='0' max='255'></label><br>"
+         << "<label>Duration: <input type='number' name='duration' value='" << s_instance->settings_.duration_minutes << "' min='1' max='120'></label><br>"
+         << "<label>Alarm Hour: <input type='number' name='alarm_hour' value='" << s_instance->settings_.alarm_hour << "' min='0' max='23'></label><br>"
+         << "<label>Alarm Minute: <input type='number' name='alarm_minute' value='" << s_instance->settings_.alarm_minute << "' min='0' max='59'></label><br>"
+         << "<label>Enabled: <input type='checkbox' name='enabled' value='1' " << (s_instance->settings_.enabled ? "checked" : "") << "></label><br>"
+         << "<input type='submit' value='Save'>"
+         << "</form></body></html>";
 
     std::string response = html.str();
+    httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, response.c_str(), response.length());
     return ESP_OK;
 }
