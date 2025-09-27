@@ -1,43 +1,27 @@
+#include "Settings.h"
 #include "LEDStrip.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "WiFiManager.h"
 #include "WebServer.h"
 #include "Alarm.h"
-#include "Settings.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "nvs_flash.h"
 
 static const char *TAG = "Main";
 
-void switch_init(const LowLevelSettings& settings)
+void switch_init(const LowLevelSettings &settings)
 {
     gpio_config_t io_conf = {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
+        .intr_type = GPIO_INTR_DISABLE};
 
     io_conf.pin_bit_mask = 1ULL << settings.pin_alarm_switch; // Beispiel Pin
     gpio_config(&io_conf);
 
     io_conf.pin_bit_mask = 1ULL << settings.pin_light_switch;
     gpio_config(&io_conf);
-}
-
-bool initialize_flash()
-{
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NEW_VERSION_FOUND || ret == ESP_ERR_NVS_INVALID_STATE)
-    {
-        nvs_flash_erase();
-        ret = nvs_flash_init();
-    }
-    if (ret != ESP_OK)
-        return false;
-    return true;
 }
 
 bool initialize_wifi()
@@ -54,12 +38,23 @@ bool initialize_wifi()
 extern "C" void app_main(void)
 {
     // Setup
-     Settings::get().init();
-    LowLevelSettings& low_level_settings = Settings::get().getSettings();
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NEW_VERSION_FOUND || ret == ESP_ERR_NVS_INVALID_STATE) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    Settings &settings = Settings::get();
+    if (settings.init() != ESP_OK) {
+        ESP_LOGE(TAG, "Settings init failed!");
+        return;
+    }
+
+    LowLevelSettings low_level_settings = Settings::get().getSettings();
 
     LEDStrip strip(low_level_settings.pin_led, low_level_settings.num_leds, false);
 
-    initialize_flash();
     initialize_wifi();
     Alarm::init();
     WebServer server(low_level_settings.port);
@@ -81,14 +76,14 @@ extern "C" void app_main(void)
         server.set_alarm_enabled(level_alarm == 1);
         server.set_light_preview(level_light_preview == 1);
 
-        SunriseSettings settings = server.get_settings_copy();
+        SunriseSettings sunrise_settings = server.get_settings_copy();
 
         ESP_LOGI(TAG, "Sunrise settings loaded: R=%d G=%d B=%d Light Preview: %s | Duration: %d min | On brightest: %d min | Alarm: %02d:%02d | Enabled: %s",
-                 settings.red, settings.green, settings.blue, settings.light_preview ? "YES" : "NO", settings.duration_minutes,
-                 settings.duration_on_brightest, settings.alarm_hour, settings.alarm_minute, settings.alarm_enabled ? "YES" : "NO");
+                 sunrise_settings.red, sunrise_settings.green, sunrise_settings.blue, sunrise_settings.light_preview ? "YES" : "NO", sunrise_settings.duration_minutes,
+                 sunrise_settings.duration_on_brightest, sunrise_settings.alarm_hour, sunrise_settings.alarm_minute, sunrise_settings.alarm_enabled ? "YES" : "NO");
 
         double sunrise_percentage;
-        if (Alarm::is_alarm_time(settings, sunrise_percentage))
+        if (Alarm::is_alarm_time(sunrise_settings, sunrise_percentage))
         {
             int red = static_cast<int>(low_level_settings.sunrise_red * sunrise_percentage);
             int green = static_cast<int>(low_level_settings.sunrise_green * sunrise_percentage);
@@ -104,11 +99,11 @@ extern "C" void app_main(void)
             }
             strip.refresh();
         }
-        else if (settings.light_preview)
+        else if (sunrise_settings.light_preview)
         {
             for (int i = 0; i < low_level_settings.num_leds; i++)
             {
-                strip.setPixel(i, settings.red, settings.green, settings.blue);
+                strip.setPixel(i, sunrise_settings.red, sunrise_settings.green, sunrise_settings.blue);
             }
             strip.refresh();
         }

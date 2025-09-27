@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low Level Settings</title>
+    <link rel="stylesheet" type="text/css" href="/style.css">
+</head>
+<body>
+    <h2>Low Level Settings</h2>
+    <form method="POST" action="/settings">
+        <label>Sunrise Red:</label><input type="number" name="sunrise_red" value="%SUNRISE_RED%" min="0" max="255"><br>
+        <label>Sunrise Green:</label><input type="number" name="sunrise_green" value="%SUNRISE_GREEN%" min="0" max="255"><br>
+        <label>Sunrise Blue:</label><input type="number" name="sunrise_blue" value="%SUNRISE_BLUE%" min="0" max="255"><br>
+
+        <label>Number of LEDs:</label><input type="number" name="num_leds" value="%NUM_LEDS%" min="1"><br>
+
+        <label>Pin LED:</label><select name="pin_led">%PIN_LED_OPTIONS%</select><br>
+        <label>Pin Alarm Switch:</label><select name="pin_alarm_switch">%PIN_ALARM_OPTIONS%</select><br>
+        <label>Pin Light Switch:</label><select name="pin_light_switch">%PIN_LIGHT_OPTIONS%</select><br>
+
+        <label>Port:</label><input type="number" name="port" value="%PORT%" min="1" max="65535"><br>
+        <label>Refresh Time (ms):</label><input type="number" name="refresh_time" value="%REFRESH_TIME%" min="1"><br>
+        <label>Cycle Sleep (ms):</label><input type="number" name="cycle_sleep" value="%CYCLE_SLEEP%" min="1"><br>
+
+        <input type="submit" value="Save">
+    </form>
+    <br>
+    <a href="/">Home</a>
+</body>
+</html>

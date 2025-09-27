@@ -1,66 +1,78 @@
 #include "Settings.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "esp_log.h"
 
-#define STORAGE_NAMESPACE "LOW_LEVEL_SETTINGS"
+static const char *TAG = "Settings";
 
 Settings& Settings::get() {
     static Settings instance;
     return instance;
 }
 
-esp_err_t Settings::init() {
-    esp_err_t err = nvs_flash_init();
-    if (err != ESP_OK && err != ESP_ERR_NVS_NO_FREE_PAGES && err != ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        return err;
+Settings::Settings() {
+    mutex_ = xSemaphoreCreateMutex();
+}
+
+Settings::~Settings() {
+    if (mutex_) {
+        vSemaphoreDelete(mutex_);
     }
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        nvs_flash_erase();
-        err = nvs_flash_init();
-    }
+}
+
+esp_err_t Settings::init()
+{
     return load();
 }
 
 esp_err_t Settings::load() {
-    nvs_handle_t handle;
-    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &handle);
-    if (err != ESP_OK) return err;
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS öffnen fehlgeschlagen: %s", esp_err_to_name(err));
+        return err;
+    }
 
-    uint8_t u8_val;
-    uint16_t u16_val;
+    size_t required_size = sizeof(settings_);
+    err = nvs_get_blob(nvs_handle, "lls", &settings_, &required_size);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(TAG, "Keine gespeicherten Settings gefunden, Standardwerte werden genutzt");
+        err = ESP_OK;
+    } else if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Fehler beim Laden der Settings: %s", esp_err_to_name(err));
+    }
 
-    if (nvs_get_u8(handle, "sunrise_red", &u8_val) == ESP_OK) settings_.sunrise_red = u8_val;
-    if (nvs_get_u8(handle, "sunrise_green", &u8_val) == ESP_OK) settings_.sunrise_green = u8_val;
-    if (nvs_get_u8(handle, "sunrise_blue", &u8_val) == ESP_OK) settings_.sunrise_blue = u8_val;
-    if (nvs_get_u16(handle, "num_leds", &u16_val) == ESP_OK) settings_.num_leds = u16_val;
-    if (nvs_get_u16(handle, "refresh_time", &u16_val) == ESP_OK) settings_.refresh_time = u16_val;
-    if (nvs_get_u16(handle, "cycle_sleep", &u16_val) == ESP_OK) settings_.cycle_sleep = u16_val;
-
-    nvs_close(handle);
-    return ESP_OK;
-}
-
-esp_err_t Settings::save() {
-    nvs_handle_t handle;
-    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK) return err;
-
-    nvs_set_u8(handle, "sunrise_red", settings_.sunrise_red);
-    nvs_set_u8(handle, "sunrise_green", settings_.sunrise_green);
-    nvs_set_u8(handle, "sunrise_blue", settings_.sunrise_blue);
-    nvs_set_u16(handle, "num_leds", settings_.num_leds);
-    nvs_set_u16(handle, "refresh_time", settings_.refresh_time);
-    nvs_set_u16(handle, "cycle_sleep", settings_.cycle_sleep);
-
-    err = nvs_commit(handle);
-    nvs_close(handle);
+    nvs_close(nvs_handle);
     return err;
 }
 
-LowLevelSettings& Settings::getSettings() {
-    return settings_;
+esp_err_t Settings::save() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) return err;
+
+    err = nvs_set_blob(nvs_handle, "lls", &settings_, sizeof(settings_));
+    if (err == ESP_OK) err = nvs_commit(nvs_handle);
+
+    nvs_close(nvs_handle);
+    return err;
 }
 
-void Settings::setSettings(const LowLevelSettings& s) {
-    settings_ = s;
+LowLevelSettings Settings::getSettings() {
+    LowLevelSettings copy;
+    if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(10)) == pdTRUE) {
+        copy = settings_;
+        xSemaphoreGive(mutex_);
+    }
+    return copy;
+}
+
+esp_err_t Settings::setSettings(const LowLevelSettings &settings) {
+    if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(50)) != pdTRUE)
+        return ESP_FAIL;
+
+    settings_ = settings;
+    xSemaphoreGive(mutex_);
+
+    return save();
 }
