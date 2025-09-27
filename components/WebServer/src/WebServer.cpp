@@ -141,26 +141,32 @@ esp_err_t WebServer::handle_settings_post(httpd_req_t *req) {
         return static_cast<int>(val);
     };
 
-    auto parse_params = [&](const std::string &body, SunriseSettings &settings) {
-        std::istringstream ss(body);
-        std::string pair;
-        while (std::getline(ss, pair, '&')) {
-            size_t eq = pair.find('=');
-            if (eq == std::string::npos) continue;
-            std::string key = pair.substr(0, eq);
-            std::string value = url_decode_value(pair.substr(eq + 1));
+auto parse_params = [&](const std::string &body, SunriseSettings &settings) {
+    bool new_enabled = false;
+    bool new_light_preview = false;
 
-            if (key == "red") settings.red = safe_stoi(value, settings.red, 0, 255);
-            else if (key == "green") settings.green = safe_stoi(value, settings.green, 0, 255);
-            else if (key == "blue") settings.blue = safe_stoi(value, settings.blue, 0, 255);
-            else if (key == "duration_minutes") settings.duration_minutes = safe_stoi(value, settings.duration_minutes, 1, 120);
-            else if (key == "duration_on_brightest") settings.duration_on_brightest = safe_stoi(value, settings.duration_on_brightest, 1, 120);
-            else if (key == "alarm_hour") settings.alarm_hour = safe_stoi(value, settings.alarm_hour, 0, 23);
-            else if (key == "alarm_minute") settings.alarm_minute = safe_stoi(value, settings.alarm_minute, 0, 59);
-            else if (key == "enabled") settings.enabled = (value == "1");
-            else if (key == "light_preview") settings.light_preview = (value == "1");
-        }
-    };
+    std::istringstream ss(body);
+    std::string pair;
+    while (std::getline(ss, pair, '&')) {
+        size_t eq = pair.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = pair.substr(0, eq);
+        std::string value = url_decode_value(pair.substr(eq + 1));
+
+        if (key == "red") settings.red = safe_stoi(value, settings.red, 0, 255);
+        else if (key == "green") settings.green = safe_stoi(value, settings.green, 0, 255);
+        else if (key == "blue") settings.blue = safe_stoi(value, settings.blue, 0, 255);
+        else if (key == "duration_minutes") settings.duration_minutes = safe_stoi(value, settings.duration_minutes, 1, 120);
+        else if (key == "duration_on_brightest") settings.duration_on_brightest = safe_stoi(value, settings.duration_on_brightest, 1, 120);
+        else if (key == "alarm_hour") settings.alarm_hour = safe_stoi(value, settings.alarm_hour, 0, 23);
+        else if (key == "alarm_minute") settings.alarm_minute = safe_stoi(value, settings.alarm_minute, 0, 59);
+        else if (key == "enabled") new_enabled = (value == "1");
+        else if (key == "light_preview") new_light_preview = (value == "1");
+    }
+
+    settings.enabled = new_enabled;
+    settings.light_preview = new_light_preview;
+};
 
     if (xSemaphoreTake(settings_mutex_, pdMS_TO_TICKS(50)) == pdTRUE) {
         parse_params(body, settings_);

@@ -46,7 +46,7 @@ extern "C" void app_main(void)
         return;
 
     ESP_LOGI(TAG, "Setup finished!");
-    
+
     // Loop
     while (true)
     {
@@ -54,26 +54,31 @@ extern "C" void app_main(void)
         SunriseSettings settings = server.get_settings_copy();
 
         ESP_LOGI(TAG, "Sunrise settings loaded: R=%d G=%d B=%d Light Preview: %s | Duration: %d min | On brightest: %d min | Alarm: %02d:%02d | Enabled: %s",
-         settings.red,
-         settings.green,
-         settings.blue,
-         settings.light_preview ? "YES" : "NO",
-         settings.duration_minutes,
-         settings.duration_on_brightest,
-         settings.alarm_hour,
-         settings.alarm_minute,
-         settings.enabled ? "YES" : "NO");
+                 settings.red, settings.green, settings.blue, settings.light_preview ? "YES" : "NO", settings.duration_minutes,
+                 settings.duration_on_brightest, settings.alarm_hour, settings.alarm_minute, settings.enabled ? "YES" : "NO");
 
         double sunrise_percentage;
         if (Alarm::is_alarm_time(settings, sunrise_percentage))
         {
-            int red = settings.red * sunrise_percentage;
-            int green = settings.green * sunrise_percentage;
-            int blue = settings.blue * sunrise_percentage;
+            int red = static_cast<int>(settings.red * sunrise_percentage);
+            int green = static_cast<int>(settings.green * sunrise_percentage);
+            int blue = static_cast<int>(settings.blue * sunrise_percentage);
+
+            red = std::min(255, std::max(0, red));
+            green = std::min(255, std::max(0, green));
+            blue = std::min(255, std::max(0, blue));
 
             for (int i = 0; i < 80; i++)
             {
                 strip.setPixel(i, red, green, blue);
+            }
+            strip.refresh();
+        }
+        else if (settings.light_preview)
+        {
+            for (int i = 0; i < 80; i++)
+            {
+                strip.setPixel(i, settings.red, settings.green, settings.blue);
             }
             strip.refresh();
         }
