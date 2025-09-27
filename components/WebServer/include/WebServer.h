@@ -4,7 +4,7 @@
 #include <string>
 #include "esp_err.h"
 #include "esp_http_server.h"
-#include "../../common/DataStructs.h"
+#include "Settings.h"
 
 class WebServer
 {

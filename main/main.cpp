@@ -4,27 +4,26 @@
 #include "WiFiManager.h"
 #include "WebServer.h"
 #include "Alarm.h"
+#include "Settings.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "nvs_flash.h"
-#include "driver/gpio.h"
-
-#define SWITCH_ALARM GPIO_NUM_18
-#define SWITCH_LIGHT_PREVIEW GPIO_NUM_19
 
 static const char *TAG = "Main";
 
-void switch_init(void)
+void switch_init(const LowLevelSettings& settings)
 {
     gpio_config_t io_conf = {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE};
-    io_conf.pin_bit_mask = 1ULL << SWITCH_ALARM;
+        .intr_type = GPIO_INTR_DISABLE
+    };
+
+    io_conf.pin_bit_mask = 1ULL << settings.pin_alarm_switch; // Beispiel Pin
     gpio_config(&io_conf);
 
-    io_conf.pin_bit_mask = 1ULL << SWITCH_LIGHT_PREVIEW;
+    io_conf.pin_bit_mask = 1ULL << settings.pin_light_switch;
     gpio_config(&io_conf);
 }
 
@@ -55,24 +54,28 @@ bool initialize_wifi()
 extern "C" void app_main(void)
 {
     // Setup
-    LEDStrip strip(17, 80, false);
+     Settings::get().init();
+    LowLevelSettings& low_level_settings = Settings::get().getSettings();
+
+    LEDStrip strip(low_level_settings.pin_led, low_level_settings.num_leds, false);
+
     initialize_flash();
     initialize_wifi();
     Alarm::init();
-    WebServer server(80);
+    WebServer server(low_level_settings.port);
     if (server.start() != ESP_OK)
         return;
 
-    switch_init();
+    switch_init(low_level_settings);
     ESP_LOGI(TAG, "Setup finished!");
 
     // Loop
     while (true)
     {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(low_level_settings.cycle_sleep));
 
-        int level_alarm = gpio_get_level(SWITCH_ALARM);
-        int level_light_preview = gpio_get_level(SWITCH_LIGHT_PREVIEW);
+        int level_alarm = gpio_get_level(low_level_settings.pin_alarm_switch);
+        int level_light_preview = gpio_get_level(low_level_settings.pin_light_switch);
         ESP_LOGI(TAG, "level_alarm is %s and level_light_preview is %s", level_alarm ? "ON" : "OFF", level_light_preview ? "ON" : "OFF");
 
         server.set_alarm_enabled(level_alarm == 1);
@@ -87,15 +90,15 @@ extern "C" void app_main(void)
         double sunrise_percentage;
         if (Alarm::is_alarm_time(settings, sunrise_percentage))
         {
-            int red = static_cast<int>(settings.red * sunrise_percentage);
-            int green = static_cast<int>(settings.green * sunrise_percentage);
-            int blue = static_cast<int>(settings.blue * sunrise_percentage);
+            int red = static_cast<int>(low_level_settings.sunrise_red * sunrise_percentage);
+            int green = static_cast<int>(low_level_settings.sunrise_green * sunrise_percentage);
+            int blue = static_cast<int>(low_level_settings.sunrise_blue * sunrise_percentage);
 
             red = std::min(255, std::max(0, red));
             green = std::min(255, std::max(0, green));
             blue = std::min(255, std::max(0, blue));
 
-            for (int i = 0; i < 80; i++)
+            for (int i = 0; i < low_level_settings.num_leds; i++)
             {
                 strip.setPixel(i, red, green, blue);
             }
@@ -103,7 +106,7 @@ extern "C" void app_main(void)
         }
         else if (settings.light_preview)
         {
-            for (int i = 0; i < 80; i++)
+            for (int i = 0; i < low_level_settings.num_leds; i++)
             {
                 strip.setPixel(i, settings.red, settings.green, settings.blue);
             }

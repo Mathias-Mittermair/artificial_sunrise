@@ -1,6 +1,6 @@
 #pragma once
 #include <time.h>
-#include "../../common/DataStructs.h"
+#include "Settings.h"
 
 namespace Alarm {
     void init();

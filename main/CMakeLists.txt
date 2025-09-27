@@ -1,4 +1,4 @@
 idf_component_register(
     SRCS "main.cpp"
-    REQUIRES LEDStrip WebServer WifiManager Alarm nvs_flash driver
+    REQUIRES LEDStrip WebServer WifiManager Alarm Settings nvs_flash driver
 )
