@@ -58,6 +58,7 @@ std::string WebServer::build_html_with_settings(const SunriseSettings &settings)
     html = replace_all(html, "%ALARM_HOUR%", std::to_string(settings.alarm_hour));
     html = replace_all(html, "%ALARM_MINUTE%", std::to_string(settings.alarm_minute));
     html = replace_all(html, "%ENABLED%", settings.enabled ? "checked" : "");
+    html = replace_all(html, "%LIGHT_PREVIEW%", settings.light_preview ? "checked" : "");
     return html;
 }
 
@@ -157,6 +158,7 @@ esp_err_t WebServer::handle_settings_post(httpd_req_t *req) {
             else if (key == "alarm_hour") settings.alarm_hour = safe_stoi(value, settings.alarm_hour, 0, 23);
             else if (key == "alarm_minute") settings.alarm_minute = safe_stoi(value, settings.alarm_minute, 0, 59);
             else if (key == "enabled") settings.enabled = (value == "1");
+            else if (key == "light_preview") settings.light_preview = (value == "1");
         }
     };
 
@@ -183,6 +185,7 @@ esp_err_t WebServer::handle_settings_get(httpd_req_t *req) {
          << "\"alarm_hour\":" << settings.alarm_hour << ","
          << "\"alarm_minute\":" << settings.alarm_minute << ","
          << "\"enabled\":" << (settings.enabled ? "true" : "false")
+         << "\"light_preview\":" << (settings.light_preview ? "true" : "false")
          << "}";
     httpd_resp_set_type(req, "application/json");
     std::string response = json.str();

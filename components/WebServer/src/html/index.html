@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Artificial Sunrise</title>
     <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -32,6 +34,15 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <label>Vorschau aktiviert
+                    <label class="switch">
+                        <input type="checkbox" name="light_preview" value="1" %LIGHT_PREVIEW%>
+                        <span class="slider"></span>
+                    </label>
+                </label>
+            </div>
+
             <div class="section">
                 <h2 class="section-title">Alarmeinstellungen</h2>
                 <div class="grid">
@@ -41,7 +52,8 @@
                     </div>
                     <div class="form-group">
                         <label>Dauer Licht nach Sonnenaufgang [min]</label>
-                        <input type="number" name="duration_on_brightest" value="%DURATION_ON_BRIGHTEST%" min="1" max="120">
+                        <input type="number" name="duration_on_brightest" value="%DURATION_ON_BRIGHTEST%" min="1"
+                            max="120">
                     </div>
                     <div class="form-group">
                         <label>Alarm Stunde</label>
@@ -79,4 +91,5 @@
         });
     </script>
 </body>
+
 </html>

@@ -53,6 +53,17 @@ extern "C" void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(1000));
         SunriseSettings settings = server.get_settings_copy();
 
+        ESP_LOGI(TAG, "Sunrise settings loaded: R=%d G=%d B=%d Light Preview: %s | Duration: %d min | On brightest: %d min | Alarm: %02d:%02d | Enabled: %s",
+         settings.red,
+         settings.green,
+         settings.blue,
+         settings.light_preview ? "YES" : "NO",
+         settings.duration_minutes,
+         settings.duration_on_brightest,
+         settings.alarm_hour,
+         settings.alarm_minute,
+         settings.enabled ? "YES" : "NO");
+
         double sunrise_percentage;
         if (Alarm::is_alarm_time(settings, sunrise_percentage))
         {
